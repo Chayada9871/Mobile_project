@@ -12,7 +12,7 @@ const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANO
 export default function SignupScreen() {
   const navigation = useNavigation();
   const [userData, setUserData] = useState({
-    email: '', password: '', firstName: '', lastName: '', phoneNumber: '',
+    email: '', password: '', firstName: '', lastName: '', phoneNumber: '', userName: ''
   });
 
   const handleChange = (field: string, value: string) => {
@@ -20,15 +20,15 @@ export default function SignupScreen() {
   };
 
   const handleSubmit = async () => {
-    const { email, password, firstName, lastName, phoneNumber } = userData;
-    if (!email || !password || !firstName || !lastName || !phoneNumber) {
+    const { email, password, firstName, lastName, phoneNumber, userName } = userData;
+    if (!email || !password || !firstName || !lastName || !phoneNumber || !userName) {
       return Alert.alert('Missing info', 'Please fill in all fields.');
     }
 
     try {
       const { data, error } = await supabase
         .from('users')
-        .insert([{ email, password, firstName, lastName, phoneNumber }])
+        .insert([{ email, password, firstName, lastName, phoneNumber, userName }])
         .select()
         .single();
 
@@ -54,7 +54,7 @@ export default function SignupScreen() {
 
         <Text style={styles.header}>Your Information for a{"\n"}Smooth Reservation Experience</Text>
 
-        {['firstName', 'lastName', 'phoneNumber', 'email', 'password'].map((field, idx) => (
+        {['firstName', 'lastName', 'phoneNumber', 'email', 'password', 'userName'].map((field, idx) => (
           <TextInput
             key={idx}
             placeholder={field === 'phoneNumber' ? 'Phone Number' : field === 'email' ? 'Email' : field === 'password' ? 'Password' : field.charAt(0).toUpperCase() + field.slice(1)}

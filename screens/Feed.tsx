@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, Image, FlatList,
-  Dimensions, TouchableOpacity, Alert
-} from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, Dimensions, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +15,8 @@ const imageSize = screenWidth / numColumns - 10;
 export default function Feed() {
   const [userId, setUserId] = useState<string | null>(null);
   const [followedUsersPosts, setFollowedUsersPosts] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>(''); // Search query state
+  const [searchedUsers, setSearchedUsers] = useState<any[]>([]); // List of users matching the search
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -28,10 +27,10 @@ export default function Feed() {
       if (storedId) {
         const userIntId = parseInt(storedId);
 
-        // Fetch posts from users the current user follows
+        // Fetch list of users that the logged-in user is following
         const { data: follows, error: followError } = await supabase
           .from('follows')
-          .select('following_id')
+          .select('followee_id')
           .eq('follower_id', userIntId);
 
         if (followError) {
@@ -39,25 +38,74 @@ export default function Feed() {
           return;
         }
 
-        const followedUserIds = follows.map((follow: any) => follow.following_id);
+        // Extract followed user IDs
+        const followedUserIds = follows.map((follow: any) => follow.followee_id);
 
-        // Fetch posts from the followed users
+        // Fetch posts of followed users
         const { data: posts, error: postError } = await supabase
           .from('posts')
-          .select('*')
-          .in('user_id', followedUserIds)
+          .select('*, users(firstName, lastName, profile_url, userName)') // Corrected: Join with users to get their info
+          .in('user_id', followedUserIds)  // Filter posts by the followed users' IDs
           .order('created_at', { ascending: false });
 
-        if (posts) setFollowedUsersPosts(posts);
-        if (postError) console.error('Error fetching posts:', postError.message);
+        if (posts) {
+          setFollowedUsersPosts(posts); // Set the posts from followed users
+        }
+        if (postError) {
+          console.error('Error fetching posts:', postError.message);
+        }
       }
     };
 
     fetchData();
   }, []);
 
+  // Function to handle search
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+
+    if (query) {
+      // Correctly using .or() for multiple ilike() conditions
+      const { data, error } = await supabase
+  .from('users')
+  .select('id, firstName, lastName, userName, profile_url')
+  .ilike('userName', `%${query}%`) // Search by username
+if (error) {
+  console.error('Error searching users:', error.message);
+  return;
+}
+
+setSearchedUsers(data); // Set the searched users
+
+    } else {
+      setSearchedUsers([]); // Clear the search results if the query is empty
+    }
+  };
+
   const renderItem = ({ item }: any) => (
-    <Image source={{ uri: item.image_url }} style={styles.image} />
+    <View style={styles.postContainer}>
+      {/* Post Owner Info */}
+      <View style={styles.postOwner}>
+        {/* Display profile image and name of the post owner */}
+        {item.users && item.users.profile_url ? (
+          <Image
+            source={{ uri: item.users.profile_url }} // Safe access to profile_url
+            style={styles.profileImage}
+          />
+        ) : (
+          <Image
+            source={require('../assets/default-avatar.png')} // Default image if profile_url is missing
+            style={styles.profileImage}
+          />
+        )}
+        <Text style={styles.userName}>
+          {item.users ? `${item.users.userName}` : 'Unknown User'}
+        </Text>
+      </View>
+
+      {/* Post Image */}
+      <Image source={{ uri: item.image_url }} style={styles.image} />
+    </View>
   );
 
   return (
@@ -67,6 +115,31 @@ export default function Feed() {
         <Text style={styles.headerTitle}>Feed</Text>
         <Feather name="archive" size={24} color="white" />
       </View>
+
+      {/* Search Bar */}
+      <View style={styles.searchBar}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search profiles"
+          value={searchQuery}
+          onChangeText={handleSearch} // Update the search query on text change
+        />
+      </View>
+
+      {/* Search Results */}
+      <FlatList
+        data={searchedUsers}
+        renderItem={({ item }) => (
+          <View style={styles.searchResult}>
+            <Image
+              source={{ uri: item.profile_url || '../assets/default-avatar.png' }}
+              style={styles.profileImage}
+            />
+            <Text>{item.userName}</Text>
+          </View>
+        )}
+        keyExtractor={(item) => item.id.toString()}
+      />
 
       {/* Posts Grid */}
       <FlatList
@@ -88,7 +161,7 @@ export default function Feed() {
           <Ionicons name="camera" size={24} color="#444" />
           <Text style={styles.navText}>Upload</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Account')}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Home')}>
           <Ionicons name="person" size={24} color="#444" />
           <Text style={styles.navText}>Account</Text>
         </TouchableOpacity>
@@ -109,14 +182,40 @@ const styles = StyleSheet.create({
     paddingTop: 40,
   },
   headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-  imageGrid: { paddingHorizontal: 10 },
+  searchBar: {
+    paddingHorizontal: 20,
+    marginTop: 10,
+  },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 20,
+    padding: 10,
+    fontSize: 16,
+  },
+  searchResult: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  profileImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   image: {
     width: imageSize,
     height: imageSize,
-    margin: 5,
     borderRadius: 10,
     backgroundColor: '#eee',
   },
+  imageGrid: { paddingHorizontal: 10 },
   bottomNav: {
     height: 70,
     borderTopWidth: 1,

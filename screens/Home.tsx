@@ -1,11 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import {
-  View, Text, StyleSheet, Image, FlatList,
-  Dimensions, TouchableOpacity, Alert
-} from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native'; // Import useRoute to get the active screen
 import { createClient } from '@supabase/supabase-js';
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,6 +25,7 @@ export default function Home() {
     following: 0,
   });
   const navigation = useNavigation();
+  const route = useRoute(); // Get the current active route name
 
   useEffect(() => {
     const fetchData = async () => {
@@ -134,11 +132,13 @@ export default function Home() {
     <Image source={{ uri: item.image_url }} style={styles.image} />
   );
 
+  // Check if the current screen is Home (Account)
+  const isHomeActive = route.name === 'Home';
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
         <Feather name="archive" size={24} color="white" />
       </View>
 
@@ -185,17 +185,28 @@ export default function Home() {
 
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#444" />
-          <Text style={styles.navText}>Feed</Text>
+        {/* Feed button */}
+        <TouchableOpacity
+          style={[styles.navItem, !isHomeActive && styles.activeNav]} // Highlight Feed if on Feed screen
+          onPress={() => navigation.navigate('Feed')}
+        >
+          <Ionicons name="home" size={24} color={!isHomeActive ? '#d14a1f' : '#444'} />
+          <Text style={[styles.navText, { color: !isHomeActive ? '#d14a1f' : '#ccc' }]}>Feed</Text>
         </TouchableOpacity>
+
+        {/* Upload button */}
         <TouchableOpacity style={styles.navItem}>
           <Ionicons name="camera" size={24} color="#444" />
           <Text style={styles.navText}>Upload</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.navItem, styles.activeNav]}>
-          <Ionicons name="person" size={24} color="#d14a1f" />
-          <Text style={[styles.navText, { color: '#d14a1f' }]}>Account</Text>
+
+        {/* Account button */}
+        <TouchableOpacity
+          style={[styles.navItem, isHomeActive && styles.activeNav]} // Highlight Account if on Home screen
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Ionicons name="person" size={24} color={isHomeActive ? '#d14a1f' : '#444'} />
+          <Text style={[styles.navText, { color: isHomeActive ? '#d14a1f' : '#ccc' }]}>Account</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -213,7 +224,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
   },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   profileContainer: {
     alignItems: 'center',
     marginTop: 20,
@@ -238,7 +248,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    // padding: 16,
+    padding: 16,
   },
   stat: { marginRight: 24, alignItems: 'center' },
   statValue: { fontSize: 16, fontWeight: 'bold' },
