@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, FlatList, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, FlatList, Dimensions, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native'; // Import useRoute to get the active screen
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { createClient } from '@supabase/supabase-js';
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 import * as ImagePicker from 'expo-image-picker';
-import 'react-native-url-polyfill/auto'; // To handle upload to Supabase
+import 'react-native-url-polyfill/auto';
 
 const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
@@ -25,7 +25,7 @@ export default function Home() {
     following: 0,
   });
   const navigation = useNavigation();
-  const route = useRoute(); // Get the current active route name
+  const route = useRoute();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,12 +46,12 @@ export default function Home() {
 
         const { data: userInfo, error: userError } = await supabase
           .from('users')
-          .select('firstName, lastName, profile_url')
+          .select('firstName, lastName, profile_url, userName')
           .eq('id', userIntId)
           .single();
 
         if (userInfo) {
-          setFullName(`${userInfo.firstName} ${userInfo.lastName}`);
+          setFullName(`${userInfo.userName}`);
           setProfileUrl(userInfo.profile_url || null);
         }
         if (userError) console.error('Error fetching user:', userError.message);
@@ -131,25 +131,115 @@ export default function Home() {
   const renderItem = ({ item }: any) => (
     <Image source={{ uri: item.image_url }} style={styles.image} />
   );
-
-  // Check if the current screen is Home (Account)
   const isHomeActive = route.name === 'Home';
+
+  // Function to choose whether the user wants to take a photo or choose from media library
+  const handleUpload = () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Take Photo',
+          onPress: () => launchCamera(),
+        },
+        {
+          text: 'Select from Library',
+          onPress: async () => {const result = await ImagePicker.launchImageLibraryAsync({mediaTypes: ImagePicker.MediaTypeOptions.Images,allowsEditing: true, quality: 1,});},
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // Function to launch the camera
+  const launchCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Camera permission is required to take a photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  // Function to launch the media library (gallery)
+  const launchImageLibrary = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaType.photo,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  // Helper function to handle image upload
+  const handleImageUpload = async (uri: string) => {
+    const fileExt = uri.split('.').pop();
+    const fileName = `${userId}_profile.${fileExt}`;
+    const filePath = `profile_pictures/${fileName}`;
+
+    const response = await fetch(uri);
+    const blob = await response.blob();
+
+    const { error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(filePath, blob, {
+        cacheControl: '3600',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      Alert.alert('Upload Error', uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+    const publicUrl = data.publicUrl;
+
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ profile_url: publicUrl })
+      .eq('id', parseInt(userId!));
+
+    if (updateError) {
+      Alert.alert('Update Error', updateError.message);
+    } else {
+      setProfileUrl(publicUrl);
+      Alert.alert('Success', 'Profile picture updated!');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
+        <Text style={styles.headerTitle}>Profile</Text>
         <Feather name="archive" size={24} color="white" />
       </View>
 
-      {/* Profile Picture + Name */}
       <View style={styles.profileContainer}>
         <TouchableOpacity onPress={handleProfileImagePick}>
           <Image
             source={
               profileUrl
                 ? { uri: profileUrl }
-                : require('../assets/default-avatar.png') // Default image if profile not set
+                : require('../assets/default-avatar.png')
             }
             style={styles.profileImage}
           />
@@ -157,7 +247,6 @@ export default function Home() {
         <Text style={styles.userName}>{fullName}</Text>
       </View>
 
-      {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.stat}>
           <Text style={styles.statValue}>{stats.posts}</Text>
@@ -173,7 +262,6 @@ export default function Home() {
         </View>
       </View>
 
-      {/* Posts Grid */}
       <FlatList
         data={userPhotos}
         renderItem={renderItem}
@@ -183,30 +271,26 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
       />
 
-      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
-        {/* Feed button */}
         <TouchableOpacity
-          style={[styles.navItem, !isHomeActive && styles.activeNav]} // Highlight Feed if on Feed screen
+          style={[styles.navItem, !isHomeActive && styles.activeNav]}
           onPress={() => navigation.navigate('Feed')}
         >
-          <Ionicons name="home" size={24} color={!isHomeActive ? '#d14a1f' : '#444'} />
-          <Text style={[styles.navText, { color: !isHomeActive ? '#d14a1f' : '#ccc' }]}>Feed</Text>
+          <Ionicons name="home" size={24} color="#d14a1f" />
+          <Text style={[styles.navText, { color: '#d14a1f' }]}>Feed</Text>
         </TouchableOpacity>
-
-        {/* Upload button */}
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={handleUpload}>
           <Ionicons name="camera" size={24} color="#444" />
           <Text style={styles.navText}>Upload</Text>
         </TouchableOpacity>
-
-        {/* Account button */}
         <TouchableOpacity
-          style={[styles.navItem, isHomeActive && styles.activeNav]} // Highlight Account if on Home screen
+          style={[styles.navItem, isHomeActive && styles.activeNav]}
           onPress={() => navigation.navigate('Home')}
         >
           <Ionicons name="person" size={24} color={isHomeActive ? '#d14a1f' : '#444'} />
-          <Text style={[styles.navText, { color: isHomeActive ? '#d14a1f' : '#ccc' }]}>Account</Text>
+          <Text style={[styles.navText, { color: isHomeActive ? '#d14a1f' : '#ccc' }]}>
+            Account
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -224,6 +308,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 40,
   },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
   profileContainer: {
     alignItems: 'center',
     marginTop: 20,
@@ -254,7 +339,6 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 16, fontWeight: 'bold' },
   statLabel: { fontSize: 12, color: '#888' },
   imageGrid: { paddingHorizontal: 10 },
-
   image: {
     width: imageSize,
     height: imageSize,

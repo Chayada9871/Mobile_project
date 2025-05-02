@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { createClient } from '@supabase/supabase-js';
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
+import * as ImagePicker from 'expo-image-picker';
+import 'react-native-url-polyfill/auto';
 
 const supabase = createClient(EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY);
 
@@ -17,6 +19,7 @@ export default function Feed() {
   const [followedUsersPosts, setFollowedUsersPosts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>(''); // Search query state
   const [searchedUsers, setSearchedUsers] = useState<any[]>([]); // List of users matching the search
+  const [profileUrl, setProfileUrl] = useState<string | null>(null);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -67,19 +70,24 @@ export default function Feed() {
     if (query) {
       // Correctly using .or() for multiple ilike() conditions
       const { data, error } = await supabase
-  .from('users')
-  .select('id, firstName, lastName, userName, profile_url')
-  .ilike('userName', `%${query}%`) // Search by username
-if (error) {
-  console.error('Error searching users:', error.message);
-  return;
-}
+        .from('users')
+        .select('id, firstName, lastName, userName, profile_url')
+        .ilike('userName', `%${query}%`);  // Search by username
+      if (error) {
+        console.error('Error searching users:', error.message);
+        return;
+      }
 
-setSearchedUsers(data); // Set the searched users
+      setSearchedUsers(data); // Set the searched users
 
     } else {
       setSearchedUsers([]); // Clear the search results if the query is empty
     }
+  };
+
+  const handleImageUpload = async (uri: string) => {
+    // Your logic for handling image upload to Supabase
+    // Add the image URI logic here
   };
 
   const renderItem = ({ item }: any) => (
@@ -108,6 +116,64 @@ setSearchedUsers(data); // Set the searched users
     </View>
   );
 
+  const handleUpload = () => {
+    Alert.alert(
+      'Select Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Take Photo',
+          onPress: () => launchCamera(),
+        },
+        {
+          text: 'Select from Library',
+          onPress: () => launchImageLibrary(),
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const launchCamera = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Camera permission is required to take a photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
+  const launchImageLibrary = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permission Required', 'Media Library permission is required to select a photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      handleImageUpload(result.assets[0].uri);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -128,18 +194,25 @@ setSearchedUsers(data); // Set the searched users
 
       {/* Search Results */}
       <FlatList
-        data={searchedUsers}
-        renderItem={({ item }) => (
-          <View style={styles.searchResult}>
-            <Image
-              source={{ uri: item.profile_url || '../assets/default-avatar.png' }}
-              style={styles.profileImage}
-            />
-            <Text>{item.userName}</Text>
-          </View>
-        )}
-        keyExtractor={(item) => item.id.toString()}
-      />
+  data={searchedUsers}
+  renderItem={({ item }) => {
+    console.log(item.profile_url); // Log to check the value of profile_url
+    return (
+      <TouchableOpacity
+        style={styles.searchResult}
+        onPress={() => navigation.navigate('Profile', { userId: item.id })}
+      >
+        <Image
+          source={{ uri: item.profile_url || '../assets/default-avatar.png' }}
+          style={styles.profileImage}
+        />
+        <Text>{item.userName}</Text>
+      </TouchableOpacity>
+    );
+  }}
+  keyExtractor={(item) => item.id.toString()}
+/>
+
 
       {/* Posts Grid */}
       <FlatList
@@ -157,7 +230,7 @@ setSearchedUsers(data); // Set the searched users
           <Ionicons name="home" size={24} color="#d14a1f" />
           <Text style={[styles.navText, { color: '#d14a1f' }]}>Feed</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity style={styles.navItem} onPress={handleUpload}>
           <Ionicons name="camera" size={24} color="#444" />
           <Text style={styles.navText}>Upload</Text>
         </TouchableOpacity>
