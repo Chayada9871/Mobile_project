@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './screens/LoginScreen';
 import SignupScreen from './screens/SignupScreen';
 import Home from './screens/Home';
-
+//test naa
 export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
