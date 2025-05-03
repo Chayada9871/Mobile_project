@@ -86,9 +86,67 @@ export default function Feed() {
   };
 
   const handleImageUpload = async (uri: string) => {
-    // Your logic for handling image upload to Supabase
-    // Add the image URI logic here
+    try {
+      // Upload the image to Supabase Storage as a post image
+      const fileExt = uri.split('.').pop(); // Extract the file extension
+      const fileName = `post_${Date.now()}.${fileExt}`;
+      const response = await fetch(uri);
+      const blob = await response.blob();
+  
+      const { data, error } = await supabase
+        .storage
+        .from('images') // This is your Supabase storage bucket
+        .upload(fileName, blob, {
+          contentType: 'image/jpeg', // Change content type as needed (e.g., image/png)
+        });
+  
+      if (error) {
+        console.error("Error uploading image:", error);
+        return;
+      }
+  
+      // Get the public URL of the uploaded image
+      const imageUrl = `${supabase.storageUrl}/images/${data.path}`;
+  
+      // Now, insert the image URL into the 'posts' table as a new post
+      const userIntId = parseInt(await AsyncStorage.getItem('userId'));
+  
+      const { data: postData, postError } = await supabase
+        .from('posts')
+        .insert([
+          {
+            user_id: userIntId,
+            image_url: imageUrl, // Image URL from Supabase Storage
+            caption: 'User uploaded a new post', // You can add a custom caption here
+          },
+        ]);
+  
+      if (postError) {
+        console.error("Error posting the image:", postError);
+        return;
+      }
+  
+      console.log("Image successfully uploaded and post created", postData);
+  
+      // Optionally, you can update the user's profile picture in the 'users' table (if needed)
+      const { data: userData, userError } = await supabase
+        .from('users')
+        .update({ profile_url: imageUrl })
+        .eq('id', userIntId);
+  
+      if (userError) {
+        console.error("Error updating user profile:", userError);
+        return;
+      }
+  
+      console.log("Profile picture updated successfully", userData);
+      setProfileUrl(imageUrl); // Update the profile URL in the state to reflect the new image
+
+    } catch (error) {
+      console.error("Error in image upload:", error);
+    }
   };
+  
 
   const renderItem = ({ item }: any) => (
     <View style={styles.postContainer}>
@@ -196,16 +254,18 @@ export default function Feed() {
       <FlatList
   data={searchedUsers}
   renderItem={({ item }) => {
-    console.log(item.profile_url); // Log to check the value of profile_url
+    console.log("Profile URL:", item.profile_url); // Log to check the value of profile_url
     return (
       <TouchableOpacity
         style={styles.searchResult}
-        onPress={() => navigation.navigate('Profile', { userId: item.id })}
+      onPress={() => navigation.navigate("Profile", { userId: item.id })} // Navigate to the profile when clicked
       >
         <Image
-          source={{ uri: item.profile_url || '../assets/default-avatar.png' }}
+        source={{ uri: item.profile_url || require('../assets/default-avatar.png') }} // Default image if profile_url is missing
           style={styles.profileImage}
         />
+   
+
         <Text>{item.userName}</Text>
       </TouchableOpacity>
     );

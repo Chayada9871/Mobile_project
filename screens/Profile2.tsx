@@ -18,6 +18,14 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      const loggedInUser = supabase.auth.user(); // Get the logged-in user
+
+      // Check if user is logged in
+      if (!loggedInUser) {
+        Alert.alert('You need to be logged in to follow users.');
+        return;
+      }
+
       // Fetch user details based on the userId
       const { data, error } = await supabase
         .from('users')
@@ -45,20 +53,17 @@ export default function Profile() {
       }
 
       // Check if the logged-in user is following this user
-      const { data: { user: loggedInUser } } = await supabase.auth.getUser(); // Get the logged-in user
-      if (loggedInUser) {
-        const { data: followData, error: followError } = await supabase
-          .from('follows')
-          .select('*')
-          .eq('follower_id', loggedInUser.id) // Get logged-in user ID
-          .eq('followee_id', userId) // Get target user ID
-          .single();
+      const { data: followData, error: followError } = await supabase
+        .from('follows')
+        .select('*')
+        .eq('follower_id', loggedInUser.id) // Get logged-in user ID
+        .eq('followee_id', userId) // Get target user ID
+        .single();
 
-        if (followError) {
-          console.error('Error checking follow status:', followError.message);
-        } else {
-          setIsFollowing(!!followData); // Set the follow state based on the result
-        }
+      if (followError) {
+        console.error('Error checking follow status:', followError.message);
+      } else {
+        setIsFollowing(!!followData); // Set the follow state based on the result
       }
     };
 
@@ -66,11 +71,7 @@ export default function Profile() {
   }, [userId]);
 
   const handleFollowUnfollow = async () => {
-    const { data: { user: loggedInUser }, error } = await supabase.auth.getUser(); // Get the logged-in user
-    if (error || !loggedInUser) {
-      Alert.alert('Error', 'Unable to retrieve logged-in user.');
-      return;
-    }
+    const loggedInUser = supabase.auth.user(); // Get the logged-in user
 
     if (!loggedInUser) {
       Alert.alert('You need to be logged in to follow users.');
