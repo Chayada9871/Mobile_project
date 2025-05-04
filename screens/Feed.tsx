@@ -349,6 +349,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
   },
   imageGrid: { paddingHorizontal: 10 },
+
+
   bottomNav: {
     height: 70,
     borderTopWidth: 1,
@@ -357,14 +359,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#000',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
-  navItem: { alignItems: 'center' },
+  navItem: { 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    flex: 1,  // This makes each nav item take up equal space
+  },
   navText: { fontSize: 12, color: '#ccc' },
-  activeNav: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 20,
-  },
+  // activeNav: {
+  //   backgroundColor: '#fff',
+  //   padding: 8,
+  //   borderRadius: 20,
+  // },
 });
