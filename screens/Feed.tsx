@@ -237,7 +237,8 @@ export default function Feed() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Feed</Text>
-        <Feather name="archive" size={24} color="white" />
+        {/* <Ionicons name="home" size={24} color="#fff" /> */}
+        {/* <Feather name="archive" size={24} color="white" /> */}
       </View>
 
       {/* Search Bar */}
@@ -306,7 +307,7 @@ export default function Feed() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    height: 80,
+    height: 100,
     backgroundColor: '#d14a1f',
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, FlatList, Dimensions, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, NavigationProp } from '@react-navigation/native';
 import { createClient } from '@supabase/supabase-js';
 import { EXPO_PUBLIC_SUPABASE_URL, EXPO_PUBLIC_SUPABASE_ANON_KEY } from '@env';
 import * as ImagePicker from 'expo-image-picker';
@@ -24,7 +24,12 @@ export default function Home() {
     followers: 0,
     following: 0,
   });
-  const navigation = useNavigation();
+  type RootStackParamList = {
+    Feed: undefined;
+    Home: undefined;
+  };
+
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute();
 
   useEffect(() => {
@@ -230,7 +235,7 @@ export default function Home() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profile</Text>
-        <Feather name="archive" size={24} color="white" />
+        {/* <Feather name="archive" size={24} color="white" /> */}
       </View>
 
       <View style={styles.profileContainer}>
@@ -273,7 +278,7 @@ export default function Home() {
 
       <View style={styles.bottomNav}>
         <TouchableOpacity
-          style={[styles.navItem, !isHomeActive && styles.activeNav]}
+          style={[styles.navItem, !isHomeActive ? null : {}]}
           onPress={() => navigation.navigate('Feed')}
         >
           <Ionicons name="home" size={24} color="#444" />
@@ -289,7 +294,7 @@ export default function Home() {
         </View>
 
         <TouchableOpacity
-          style={[styles.navItem, isHomeActive && styles.activeNav]} // Fixed the missing bracket here
+          style={[styles.navItem, isHomeActive ? {} : null]} // Fixed the missing bracket here
           onPress={() => navigation.navigate('Home')}
         >
           <Ionicons name="person" size={24} color={isHomeActive ? '#d14a1f' : '#444'} />
@@ -305,7 +310,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    height: 80,
+    height: 100,
     backgroundColor: '#d14a1f',
     flexDirection: 'row',
     justifyContent: 'space-between',
